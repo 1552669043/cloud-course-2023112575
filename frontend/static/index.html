@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>云计算课设 Web 应用</title>
+</head>
+<body>
+  <h1>云计算课设 Web 应用</h1>
+  <p>学号：2023112575 姓名：范峻山</p>
+  <button onclick="ping()">测试后端 API</button>
+  <pre id="result"></pre>
+  <script>
+    async function ping() {
+      const res = await fetch('/api/ping');
+      document.getElementById('result').textContent = await res.text();
+    }
+  </script>
+</body>
+</html>

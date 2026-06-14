@@ -1,0 +1,6 @@
+kubectl top nodes
+kubectl apply -f hpa.yaml
+kubectl get hpa
+kubectl get pods -w
+ab -n 10000 -c 200 http://<ELB_IP>/api/ping
+kubectl describe hpa backend-hpa
