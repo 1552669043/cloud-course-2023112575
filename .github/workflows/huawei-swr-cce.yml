@@ -1,0 +1,65 @@
+name: Build and Deploy to Huawei CCE
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+env:
+  REGISTRY: swr.cn-north-4.myhuaweicloud.com
+  ORG: cce-coursefjs
+  NAMESPACE: default
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set image tag
+        run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - name: Login to Huawei SWR
+        run: echo "${{ secrets.SWR_PASSWORD }}" | docker login "$REGISTRY" -u "${{ secrets.SWR_USERNAME }}" --password-stdin
+
+      - name: Build and push backend image
+        run: |
+          docker build -t "$REGISTRY/$ORG/backend:$IMAGE_TAG" ./backend
+          docker push "$REGISTRY/$ORG/backend:$IMAGE_TAG"
+
+      - name: Build and push frontend image
+        run: |
+          docker build -t "$REGISTRY/$ORG/frontend:$IMAGE_TAG" ./frontend
+          docker push "$REGISTRY/$ORG/frontend:$IMAGE_TAG"
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBECONFIG_B64 }}" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Apply manifests
+        run: |
+          kubectl apply -f k8s/configmap-secret.yaml
+          kubectl apply -f k8s/redis-pvc.yaml
+          kubectl apply -f k8s/redis-deployment.yaml
+          kubectl apply -f k8s/frontend-nginx-configmap.yaml
+          kubectl apply -f k8s/backend-deployment.yaml
+          kubectl apply -f k8s/frontend-deployment.yaml
+          kubectl apply -f k8s/service.yaml
+
+      - name: Update deployment images
+        run: |
+          kubectl set image deployment/backend backend="$REGISTRY/$ORG/backend:$IMAGE_TAG" -n "$NAMESPACE"
+          kubectl set image deployment/frontend frontend="$REGISTRY/$ORG/frontend:$IMAGE_TAG" -n "$NAMESPACE"
+          kubectl rollout status deployment/backend -n "$NAMESPACE" --timeout=180s
+          kubectl rollout status deployment/frontend -n "$NAMESPACE" --timeout=180s
+
+      - name: Show updated images
+        run: |
+          kubectl get deployment backend frontend -n "$NAMESPACE" -o wide
