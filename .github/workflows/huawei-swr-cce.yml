@@ -51,7 +51,6 @@ jobs:
           kubectl apply -f k8s/frontend-nginx-configmap.yaml
           kubectl apply -f k8s/backend-deployment.yaml
           kubectl apply -f k8s/frontend-deployment.yaml
-          kubectl apply -f k8s/service.yaml
 
       - name: Update deployment images
         run: |
